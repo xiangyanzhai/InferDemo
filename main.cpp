@@ -163,9 +163,94 @@ public:
 
 };
 
+void get_res(std::vector<bbox> &res, std::vector<cv::Rect2d> &bboxes, cv::Mat &temp, int num_cls,
+             float conf_thresh = 0.3, float nms_thresh = 0.45) {
+    cv::Point classIdPoint;
+    double confidence;
+    for (int i = 0; i < num_cls; i++) {
+        std::vector<int> indices;
+        cv::dnn::NMSBoxes(bboxes, temp.colRange(i, i + 1), 0.005, nms_thresh, indices);
+        std::sort(indices.begin(), indices.end());
+        for (int j = 0, k = 0; j < temp.rows; j++) {
+            if (k < indices.size()) {
+                if (j != indices[k]) {
+                    temp.at<float>(j, i) = 0.0f;
+                } else {
+                    k++;
+                }
+            } else {
+                temp.at<float>(j, i) = 0.0f;
+            }
+
+
+        }
+    }
+
+
+    for (int i = 0; i < temp.rows; i++) {
+        minMaxLoc(temp.row(i), 0, &confidence, 0, &classIdPoint);
+
+        if (confidence < conf_thresh) continue;
+
+        res.push_back({bboxes[i].x, bboxes[i].y, bboxes[i].width, bboxes[i].height, confidence, classIdPoint.x});
+    }
+    std::sort(res.begin(), res.end(), my_sort);
+
+
+}
+
+void
+postprocess(std::vector<std::vector<bbox>> &res, std::vector<float *> &output, std::vector<std::vector<int>> &shapes,
+            float conf_thresh = 0.3,
+            float nms_thresh = 0.45) {
+    float *boxes = output[0];
+    float *confs = output[1];
+
+    int batch = shapes[1][0];
+    int num_cls = shapes[1][2];
+    float max_value = -1e20;
+    float conf_temp;
+    cv::Mat temp;
+    std::vector<cv::Mat> temp_batch(batch);
+    std::vector<std::vector<cv::Rect2d>> bboxes(batch);
+    std::vector<std::vector<cv::Mat>> scores(batch);
+
+    int stride1 = shapes[0][1] * shapes[0][3];
+    int stride2 = shapes[1][1] * shapes[1][2];
+    for (int i = 0; i < batch; i++) {
+        for (int j = 0; j < shapes[0][1]; j++) {
+            max_value = -1e20;
+            for (int k = 0; k < num_cls; k++) {
+                conf_temp = confs[i * stride2 + j * num_cls + k];
+                if (max_value < conf_temp) {
+                    max_value = conf_temp;
+                }
+            }
+            if (max_value < conf_thresh) {
+                continue;
+            }
+            bboxes[i].push_back(cv::Rect2d(boxes[i * stride1 + j * 4 + 0], boxes[i * stride1 + j * 4 + 1],
+                                           boxes[i * stride1 + j * 4 + 2] - boxes[i * stride1 + j * 4 + 0],
+                                           boxes[i * stride1 + j * 4 + 3] - boxes[i * stride1 + j * 4 + 1]));
+            temp = cv::Mat(1, num_cls, CV_32F);
+            for (int k = 0; k < num_cls; k++) {
+                temp.at<float>(0, k) = confs[i * stride2 + j * num_cls + k];
+            }
+            scores[i].push_back(temp);
+
+        }
+    }
+    for (int i = 0; i < batch; i++) {
+        if (bboxes[i].empty()) continue;
+        cv::vconcat(scores[i], temp);
+        get_res(res[i], bboxes[i], temp, num_cls, conf_thresh, nms_thresh);
+    }
+}
+
+
 void yolo_cv_test() {
-    std::string modelConfiguration = "C:\\Users\\admin\\Desktop\\yolov4\\yolov4.cfg";
-    std::string modelWeights = "C:\\Users\\admin\\Desktop\\yolov4\\yolov4.weights";
+    std::string modelConfiguration = "D:\\model\\yolov4.cfg";
+    std::string modelWeights = "D:\\model\\yolov4.weights";
     int inpWidth = 608;
     int inpHeight = 608;
     bool equal_scale = false;
@@ -215,7 +300,118 @@ void yolo_cv_test() {
     std::cout << "Hello, World!" << std::endl;
 }
 
+struct OnnxInfo {
+    const wchar_t *onnx_file;
+    std::vector<const char *> input_node_names;
+    std::vector<const char *> output_node_names;
+
+};
+
+
+void yolo_onnx_test(const wchar_t *onnx_file, std::vector<string> img_files, float conf_thresh = 0.3,
+                    float nms_thresh = 0.45) {
+    Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
+    Ort::SessionOptions session_options;
+    session_options.SetIntraOpNumThreads(1);
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    Ort::Session session(env, onnx_file, session_options);
+    Ort::AllocatorWithDefaultOptions allocator;
+    auto mask_memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+
+    OnnxInfo onnx_info;
+    onnx_info.onnx_file = onnx_file;
+    int input_w, input_h;
+    input_w = session.GetInputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape()[2];
+    input_h = session.GetInputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape()[3];
+    for (int i = 0; i < session.GetInputCount(); i++) {
+//        std::cout<<session.GetInputName(i,allocator)<<std::endl;
+        onnx_info.input_node_names.push_back(session.GetInputName(i, allocator));
+//        for (int j = 0; j < session.GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetDimensionsCount(); j++) {
+//            std::cout<<session.GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape()[j]<<"  ";
+//        }
+//        std::cout<<std::endl;
+
+//        std::cout<< typeid(session.GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape().data()).name()  <<std::endl;
+
+
+    }
+    for (int i = 0; i < session.GetOutputCount(); i++) {
+        onnx_info.output_node_names.push_back(session.GetOutputName(i, allocator));
+    }
+
+
+    std::vector<cv::Mat> frames;
+    for (int i = 0; i < img_files.size(); i++) {
+        frames.push_back(cv::imread(img_files[i]));
+    }
+    cv::Mat blob = cv::dnn::blobFromImages(frames, 1 / 255.0, cv::Size(input_w, input_h), cv::Scalar(0, 0, 0), true,
+                                           false);
+
+    std::vector<std::vector<bbox>> res(blob.size[0]);
+
+    int num = 1;
+    std::vector<int64_t> b;
+    for (int i = 0; i < blob.dims; i++) {
+        num *= blob.size[i];
+        b.push_back(blob.size[i]);
+    }
+
+    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(mask_memory_info, (float *) blob.data, num,
+                                                              b.data(), blob.dims);
+    std::vector<Ort::Value> ort_inputs;
+    ort_inputs.push_back(std::move(input_tensor));
+
+    auto output_tensors = session.Run(Ort::RunOptions{nullptr}, onnx_info.input_node_names.data(), ort_inputs.data(),
+                                      ort_inputs.size(), onnx_info.output_node_names.data(),
+                                      onnx_info.output_node_names.size());
+    std::vector<std::vector<int>> shapes(output_tensors.size());
+    std::vector<float *> outputs(output_tensors.size());
+    for (int i = 0; i < output_tensors.size(); i++) {
+
+        outputs[i] = (float *) output_tensors[i].GetTensorMutableData<float>();
+        for (int j = 0; j < output_tensors[i].GetTensorTypeAndShapeInfo().GetDimensionsCount(); j++) {
+            shapes[i].push_back(output_tensors[i].GetTensorTypeAndShapeInfo().GetShape()[j]);
+        }
+
+    }
+
+    postprocess(res, outputs, shapes);
+
+    string label;
+    float x1, y1, w, h, score;
+    int cls;
+    cv::Mat frame;
+    for (int z = 0; z < blob.size[0]; z++) {
+        frame = frames[z];
+        std::cout << res[z].size() << std::endl;
+        for (int i = 0; i < res[z].size(); i++) {
+            x1 = res[z][i].x1 * frame.cols;
+            y1 = res[z][i].y1 * frame.rows;
+            w = res[z][i].w * frame.cols;
+            h = res[z][i].h * frame.rows;
+            score = res[z][i].score;
+            cls = res[z][i].cls;
+            cout << score << endl;
+
+            cv::rectangle(frame, cv::Point((int) x1, (int) y1), cv::Point((int) (x1 + w), (int) (y1 + h)),
+                          cv::Scalar(0, 255, 0), 2);
+            label = "cls=" + std::to_string((int) cls) + "  score=" + std::to_string(score);
+            cv::putText(frame, label, cv::Point((int) x1, (int) y1), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 0, 0),
+                        0.5);
+
+        }
+        cv::imshow("img", frame);
+        cv::waitKey(2000);
+    }
+
+
+}
+
 int main() {
-    yolo_cv_test();
+    const wchar_t *onnx_file = L"D:\\model\\yolov4_-1_3_608_608_dynamic.onnx";
+    std::vector<string> img_files;
+    img_files.push_back("D:\\PycharmProjects\\python_infer\\sample\\football_h.jpg");
+    img_files.push_back("D:\\PycharmProjects\\python_infer\\sample\\football_v.jpg");
+    yolo_onnx_test(onnx_file, img_files);
     return 0;
 }
