@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(InferDemo)
 
 set(CMAKE_CXX_STANDARD 14)
-set(OpenCV_DIR "D:/opencv/build/x64/vc15/lib" )
+set(OpenCV_DIR "D:/opencv/build/x64/vc15/lib")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
