@@ -1,4 +1,5 @@
 #pragma once
+#define M_PI       3.14159265358979323846
 
 #include <iostream>
 #include <ctime>
@@ -221,41 +222,113 @@ std::vector<std::string> getOutputsNames(const cv::dnn::Net &net) {
     return names;
 }
 
-void xywh2cs(float x, float y, float w, float h, std::array<float, 2> &center, std::array<float, 2> &scale) {
-    center[0] = x + w * 0.5;
-    center[1] = y + h * 0.5;
+//void xywh2cs(float x, float y, float w, float h, std::array<float, 2> &center, std::array<float, 2> &scale) {
+//    center[0] = x + w * 0.5;
+//    center[1] = y + h * 0.5;
+//
+//    float aspect_ratio = 0.75;
+//    float pixel_std = 200;
+//    if (w > aspect_ratio * h) {
+//        h = w * 1.0 / aspect_ratio;
+//    } else {
+//        w = h * aspect_ratio;
+//    }
+//    scale[0] = (w * 1.0 / pixel_std);
+//    scale[1] = (h * 1.0 / pixel_std);
+//    if (center[0] != -1) {
+//        scale[0] = scale[0] * 1.25;
+//        scale[1] = scale[1] * 1.25;
+//    }
+//
+//}
+//
+//void get_dir(std::array<float, 2> &src_point, float rot_rad, std::array<float, 2> &src_result) {
+//    float sn = sin(rot_rad);
+//    float cs = cos(rot_rad);
+//    src_result[0] = src_point[0] * cs - src_point[1] * sn;
+//    src_result[1] = src_point[0] * sn + src_point[1] * cs;
+//}
+//
+//void get_3rd_point(std::array<std::array<float, 2>, 3> &src) {
+//    src[2][0] = src[1][0] - src[0][1] + src[1][1];
+//    src[2][1] = src[1][1] + src[0][0] - src[1][0];
+//}
+//
+//auto get_affine_transform(std::array<float, 2> &center, std::array<float, 2> &scale, float rot,
+//                          std::array<int, 2> &output_size, std::array<float, 2> shift, bool inv) {
+//    std::array<float, 2> scale_tmp = {};
+//    scale_tmp[0] = scale[0] * 200;
+//    scale_tmp[1] = scale[1] * 200;
+//    float src_w = scale_tmp[0];
+//    int dst_w = output_size[0];
+//    int dst_h = output_size[1];
+//    float rot_rad = M_PI * rot / 180;
+//
+//    std::array<float, 2> src_dir = {};
+//    std::array<float, 2> src_point = {0, static_cast<float>(src_w * -0.5)};
+//    get_dir(src_point, rot_rad, src_dir);
+//
+//    std::array<float, 2> dst_dir = {0, static_cast<float>(dst_w * -0.5)};
+//    std::array<std::array<float, 2>, 3> src = {};
+//    std::array<std::array<float, 2>, 3> dst = {};
+//    src[0][0] = center[0] + scale_tmp[0] * shift[0];
+//    src[0][1] = center[1] + scale_tmp[1] * shift[1];
+//    src[1][0] = center[0] + scale_tmp[0] * shift[0] + src_dir[0];
+//    src[1][1] = center[1] + scale_tmp[1] * shift[1] + src_dir[1];
+//
+//    dst[0] = {static_cast<float>(dst_w * 0.5), static_cast<float>(dst_h * 0.5)};
+//    dst[1] = {static_cast<float>(dst_w * 0.5 + dst_dir[0]), static_cast<float>(dst_h * 0.5 + dst_dir[1])};
+//
+//    get_3rd_point(src);
+//    get_3rd_point(dst);
+//
+//    cv::Point2f point_src[3] = {};
+//    cv::Point2f point_dst[3] = {};
+//    for (int i = 0; i < 3; i++) {
+//        point_src[i] = cv::Point2f(src[i][0], src[i][1]);
+//        point_dst[i] = cv::Point2f(dst[i][0], dst[i][1]);
+//    }
+//    if (inv) {
+//        return cv::getAffineTransform(point_dst, point_src);
+//    } else {
+//        return cv::getAffineTransform(point_src, point_dst);
+//    }
+//}
+
+void xywh2cs(float x, float y, float w, float h, float center[2], float scale[2]) {
+    center[0] = x + w * 0.5f;
+    center[1] = y + h * 0.5f;
 
     float aspect_ratio = 0.75;
     float pixel_std = 200;
     if (w > aspect_ratio * h) {
-        h = w * 1.0 / aspect_ratio;
+        h = w * 1.0f / aspect_ratio;
     } else {
         w = h * aspect_ratio;
     }
-    scale[0] = (w * 1.0 / pixel_std);
-    scale[1] = (h * 1.0 / pixel_std);
+    scale[0] = (w * 1.0f / pixel_std);
+    scale[1] = (h * 1.0f / pixel_std);
     if (center[0] != -1) {
-        scale[0] = scale[0] * 1.25;
-        scale[1] = scale[1] * 1.25;
+        scale[0] = scale[0] * 1.25f;
+        scale[1] = scale[1] * 1.25f;
     }
-
 }
 
-void get_dir(std::array<float, 2> &src_point, float rot_rad, std::array<float, 2> &src_result) {
+void get_dir(const float src_point[2], float rot_rad, float src_result[2]) {
     float sn = sin(rot_rad);
     float cs = cos(rot_rad);
     src_result[0] = src_point[0] * cs - src_point[1] * sn;
     src_result[1] = src_point[0] * sn + src_point[1] * cs;
 }
 
-void get_3rd_point(std::array<std::array<float, 2>, 3> &src) {
-    src[2] = {src[0][0] - src[1][0], src[0][1] - src[1][1]};
-    src[2] = {src[1][0] - src[2][1], src[1][1] + src[2][0]};
+void get_3rd_point(float src[3][2]) {
+    src[2][0] = src[1][0] - src[0][1] + src[1][1];
+    src[2][1] = src[1][1] + src[0][0] - src[1][0];
 }
 
-auto get_affine_transform(std::array<float, 2> &center, std::array<float, 2> &scale, float rot,
-                          std::array<int, 2> &output_size, std::array<float, 2> shift, bool inv) {
-    std::array<float, 2> scale_tmp = {};
+auto get_affine_transform(const float center[2], const float scale[2], float rot,
+                          const int output_size[2], const float shift[2], bool inv) {
+    float scale_tmp[2] = {};
     scale_tmp[0] = scale[0] * 200;
     scale_tmp[1] = scale[1] * 200;
     float src_w = scale_tmp[0];
@@ -263,20 +336,23 @@ auto get_affine_transform(std::array<float, 2> &center, std::array<float, 2> &sc
     int dst_h = output_size[1];
     float rot_rad = M_PI * rot / 180;
 
-    std::array<float, 2> src_dir = {};
-    std::array<float, 2> src_point = {0, static_cast<float>(src_w * -0.5)};
+    float src_dir[2] = {};
+    float src_point[2] = {0, static_cast<float>(src_w * -0.5)};
     get_dir(src_point, rot_rad, src_dir);
 
-    std::array<float, 2> dst_dir = {0, static_cast<float>(dst_w * -0.5)};
-    std::array<std::array<float, 2>, 3> src = {};
-    std::array<std::array<float, 2>, 3> dst = {};
+    float dst_dir[2] = {0, static_cast<float>(dst_w * -0.5)};
+    float src[3][2] = {};
+    float dst[3][2] = {};
     src[0][0] = center[0] + scale_tmp[0] * shift[0];
     src[0][1] = center[1] + scale_tmp[1] * shift[1];
     src[1][0] = center[0] + scale_tmp[0] * shift[0] + src_dir[0];
     src[1][1] = center[1] + scale_tmp[1] * shift[1] + src_dir[1];
 
-    dst[0] = {static_cast<float>(dst_w * 0.5), static_cast<float>(dst_h * 0.5)};
-    dst[1] = {static_cast<float>(dst_w * 0.5 + dst_dir[0]), static_cast<float>(dst_h * 0.5 + dst_dir[1])};
+    dst[0][0] = static_cast<float>(dst_w * 0.5);
+    dst[0][1] = static_cast<float>(dst_h * 0.5);
+
+    dst[1][0] = static_cast<float>(dst_w * 0.5 + dst_dir[0]);
+    dst[1][1] = static_cast<float>(dst_h * 0.5 + dst_dir[1]);
 
     get_3rd_point(src);
     get_3rd_point(dst);
