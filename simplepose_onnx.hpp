@@ -17,11 +17,14 @@ public:
         this->onnx_infer = new OnnxInfer(onnx_file);
     }
 
+    SimplePose(const wchar_t *onnx_file, std::string name) {
+        this->onnx_infer = new OnnxInfer(onnx_file, name);
+    }
+
     void infer(std::vector<cv::Mat> &frames, std::vector<std::vector<bbox_keypoints>> &res, int input_w, int input_h,
                std::vector<cv::Mat> &trans_vs) {
         cv::Mat blob;
         preprocess(blob, frames, input_w, input_h);
-        std::cout << blob.size << std::endl;
         this->onnx_infer->infer(blob);
         postprocess_simplepose(res, this->onnx_infer->outputs, this->onnx_infer->output_shapes, trans_vs);
     }

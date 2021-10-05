@@ -18,6 +18,10 @@ public:
         this->onnx_infer = new OnnxInfer(onnx_file);
     }
 
+    YOLO(const wchar_t *onnx_file, std::string name) {
+        this->onnx_infer = new OnnxInfer(onnx_file, name);
+    }
+
     void infer(std::vector<cv::Mat> &frames, std::vector<std::vector<bbox>> &res, int input_w, int input_h) {
         cv::Mat blob;
         preprocess_yolo(blob, frames, input_w, input_h);
@@ -42,6 +46,10 @@ public:
 
     YOLOFastest(const wchar_t *onnx_file) {
         this->onnx_infer = new OnnxInfer(onnx_file);
+    }
+
+    YOLOFastest(const wchar_t *onnx_file, std::string name) {
+        this->onnx_infer = new OnnxInfer(onnx_file, name);
     }
 
     void infer(std::vector<cv::Mat> &frames, std::vector<std::vector<bbox>> &res, int input_w, int input_h) {

@@ -156,9 +156,9 @@ void yolo_cv_test() {
 
 void simplepose_test() {
     const wchar_t *onnx_file = L"D:\\PycharmProjects\\pytorch_YOLOv3\\test\\yolo_fastest_body.onnx";
-    YOLOFastest yolo(onnx_file);
+    YOLOFastest yolo(onnx_file, "yolo_fastest_body");
     onnx_file = L"D:\\model\\effi_coco.onnx";
-    SimplePose simplepose(onnx_file);
+    SimplePose simplepose(onnx_file, "simplepose");
     std::vector<std::string> img_files;
     std::vector<cv::Mat> frames;
     cv::VideoCapture cap("D:\\sample_video\\01.13.17.755.flv");
@@ -177,7 +177,7 @@ void simplepose_test() {
         cap >> frame;
         if (frame.empty()) break;
         frames.push_back(frame);
-        if (frames.size() < 1) continue;
+        if (frames.size() < 2) continue;
         yolo.infer(frames, res, input_w, input_h);
         std::vector<std::vector<bbox_keypoints>> res_k(frames.size());
         std::vector<cv::Mat> t_frames;
