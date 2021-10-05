@@ -6,6 +6,7 @@
 #include "process.hpp"
 #include "onnx_infer.hpp"
 #include "yolo_onnx.hpp"
+#include "simplepose_onnx.hpp"
 #include "yolo_cv.hpp"
 
 std::string f2s(float a) {
@@ -151,14 +152,98 @@ void yolo_cv_test() {
             cv::waitKey(20);
         }
     }
+}
+
+void simplepose_test() {
+    const wchar_t *onnx_file = L"D:\\PycharmProjects\\pytorch_YOLOv3\\test\\yolo_fastest_body.onnx";
+    YOLOFastest yolo(onnx_file);
+    onnx_file = L"D:\\model\\effi_coco.onnx";
+    SimplePose simplepose(onnx_file);
+    std::vector<std::string> img_files;
+    std::vector<cv::Mat> frames;
+    cv::VideoCapture cap("D:\\sample_video\\01.13.17.755.flv");
+    cv::Mat frame;
+    std::vector<std::vector<bbox>> res;
+
+    int input_w = 320;
+    int input_h = 320;
+    int output_size[2] = {192, 256};
+    int heatmap_size[2] = {48, 64};
+    float shift[2] = {};
+    std::string label;
+    float x1, y1, ww, hh, score;
+    int cls;
+    while (true) {
+        cap >> frame;
+        if (frame.empty()) break;
+        frames.push_back(frame);
+        if (frames.size() < 1) continue;
+        yolo.infer(frames, res, input_w, input_h);
+        std::vector<std::vector<bbox_keypoints>> res_k(frames.size());
+        std::vector<cv::Mat> t_frames;
+        std::vector<cv::Mat> trans_vs;
+        for (int z = 0; z < frames.size(); z++) {
+            frame = frames[z];
+            for (int i = 0; i < res[z].size(); i++) {
+                x1 = res[z][i].x1 * frame.cols / input_w;
+                y1 = res[z][i].y1 * frame.rows / input_h;
+                ww = res[z][i].w * frame.cols / input_w;
+                hh = res[z][i].h * frame.rows / input_h;
+                score = res[z][i].score;
+                cls = res[z][i].cls;
+                bbox_keypoints temp;
+                temp.x1 = x1;
+                temp.y1 = y1;
+                temp.w = ww;
+                temp.h = hh;
+                temp.score = score;
+                temp.cls = cls;
+                memset(temp.keypoints, 0, sizeof(temp.keypoints));
+                res_k[z].push_back(temp);
+                float center[2] = {};
+                float scale[2] = {};
+
+                xywh2cs(x1, y1, ww, hh, center, scale);
+                cv::Mat trans = get_affine_transform(center, scale, 0, output_size, shift, false);
+                cv::Mat trans_v = get_affine_transform(center, scale, 0, heatmap_size, shift, true);
+
+                trans_vs.push_back(trans_v);
+                cv::Mat t_img;
+                cv::warpAffine(frame, t_img, trans, cv::Size(192, 256));
+                t_frames.push_back(t_img);
 
 
+            }
+
+        }
+        simplepose.infer(t_frames, res_k, 192, 256, trans_vs);
+        for (int i = 0; i < frames.size(); i++) {
+            frame = frames[i];
+            for (int j = 0; j < res_k[i].size(); j++) {
+                x1 = res_k[i][j].x1;
+                y1 = res_k[i][j].y1;
+                ww = res_k[i][j].w;
+                hh = res_k[i][j].h;
+                cv::rectangle(frame, cv::Point((int) x1, (int) y1), cv::Point((int) (x1 + ww), (int) (y1 + hh)),
+                              cv::Scalar(0, 255, 0), 2);
+                for (int k = 0; k < 17; k++) {
+                    cv::circle(frame, cv::Point((int) res_k[i][j].keypoints[k][0], (int) res_k[i][j].keypoints[k][1]),
+                               2,
+                               cv::Scalar(0, 255, 0), 2);
+                }
+            }
+            cv::imshow("img", frame);
+            cv::waitKey(20);
+        }
+        frames.clear();
+    }
 }
 
 int main() {
 //    yolo_test();
-    yolo_fastest_test();
+//    yolo_fastest_test();
 //    yolo_cv_test();
+    simplepose_test();
     return 0;
 }
 

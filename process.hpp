@@ -6,6 +6,8 @@
 #include <opencv2/opencv.hpp>
 #include<vector>
 
+const float mean_[3] = {0.485, 0.456, 0.406};
+const float std_[3] = {0.229, 0.224, 0.225};
 struct bbox {
     double x1;
     double y1;
@@ -14,6 +16,13 @@ struct bbox {
     double score;
     int cls;
 };
+struct bbox_keypoints : bbox {
+    float keypoints[17][3];
+};
+struct point {
+    float a;
+    float b;
+};
 
 bool my_sort(bbox &a, bbox &b) {
     return a.score > b.score;
@@ -21,6 +30,19 @@ bool my_sort(bbox &a, bbox &b) {
 
 void preprocess_yolo(cv::Mat &blob, std::vector<cv::Mat> &frames, int input_w, int input_h) {
     blob = cv::dnn::blobFromImages(frames, 1 / 255.0, cv::Size(input_w, input_h), cv::Scalar(0, 0, 0), true, false);
+}
+
+void preprocess(cv::Mat &blob, std::vector<cv::Mat> &frames, int input_w, int input_h) {
+    blob = cv::dnn::blobFromImages(frames, 1 / 255.0, cv::Size(input_w, input_h), cv::Scalar(0, 0, 0), true, false);
+    float *ptr = (float *) blob.data;
+    for (int i = 0; i < frames.size(); i++) {
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < input_w * input_h; k++) {
+                ptr[i * 3 * input_w * input_h + j * input_w * input_h + k] =
+                        (ptr[i * 3 * input_w * input_h + j * input_w * input_h + k] - mean_[j]) / std_[j];
+            }
+        }
+    }
 }
 
 void get_res(std::vector<bbox> &res, std::vector<cv::Rect2d> &bboxes, cv::Mat &temp, int num_cls,
@@ -367,5 +389,63 @@ auto get_affine_transform(const float center[2], const float scale[2], float rot
         return cv::getAffineTransform(point_dst, point_src);
     } else {
         return cv::getAffineTransform(point_src, point_dst);
+    }
+}
+
+float sign(float x) {
+    if (x >= 0)
+        return 1.0f;
+    else
+        return -1.0f;
+}
+
+void postprocess_simplepose_one(bbox_keypoints &res, float *ptr, int hm_h, int hm_w, int channel, cv::Mat &trans_v) {
+    float max_val;
+    int c;
+    double *data = (double *) trans_v.data;
+    for (int i = 0; i < channel; i++) {
+        max_val = -1e20;
+        c = 0;
+        for (int j = 0; j < hm_h; j++) {
+            for (int k = 0; k < hm_w; k++) {
+                if (max_val < ptr[i * hm_h * hm_w + c]) {
+                    max_val = ptr[i * hm_h * hm_w + c];
+                    res.keypoints[i][0] = (float) k;
+                    res.keypoints[i][1] = (float) j;
+                    res.keypoints[i][2] = max_val;
+                }
+                c++;
+            }
+        }
+        int a = (int) res.keypoints[i][0];
+        int b = (int) res.keypoints[i][1];
+
+        if ((a > 1 && a < hm_w - 1) && (b > 1 && b < hm_w - 1)) {
+            float temp = ptr[i * hm_h * hm_w + b * hm_h + a + 1] - ptr[i * hm_h * hm_w + b * hm_h + a - 1];
+            res.keypoints[i][0] += sign(temp) * 0.25f;
+            temp = ptr[i * hm_h * hm_w + (b + 1) * hm_w + a] - ptr[i * hm_h * hm_w + (b - 1) * hm_w + a];
+            res.keypoints[i][1] += sign(temp) * 0.25f;
+        }
+        res.keypoints[i][0] = res.keypoints[i][0] * data[0] + res.keypoints[i][1] * data[1] + data[2];
+        res.keypoints[i][1] = res.keypoints[i][0] * data[3] + res.keypoints[i][1] * data[4] + data[5];
+    }
+}
+
+void postprocess_simplepose(std::vector<std::vector<bbox_keypoints>> &res, std::vector<float *> &output,
+                            std::vector<std::vector<int>> &shapes, std::vector<cv::Mat> &trans_vs) {
+    float *out = (float *) output[0];
+    int batch = shapes[0][0];
+    int keypoints = shapes[0][1];
+    int hm_h = shapes[0][2];
+    int hm_w = shapes[0][3];
+    int row = 0;
+    int col = 0;
+    for (int i = 0; i < batch; i++, col++) {
+        if (col == res[row].size()) {
+            row++;
+            col = 0;
+        }
+        postprocess_simplepose_one(res[row][col], &out[i * keypoints * hm_h * hm_w], hm_h, hm_w, keypoints,
+                                   trans_vs[i]);
     }
 }

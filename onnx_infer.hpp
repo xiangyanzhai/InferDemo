@@ -70,7 +70,7 @@ public:
                                            ort_inputs.size(), this->output_node_names.data(),
                                            this->output_node_names.size());
         endTime = clock();
-        std::cout << "yolo onnx infer time:" << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << std::endl;
+        std::cout << "onnx infer time:" << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << std::endl;
         for (int i = 0; i < output_tensors.size(); i++) {
             this->outputs[i] = (float *) output_tensors[i].GetTensorMutableData<float>();
             this->output_shapes[i].clear();
