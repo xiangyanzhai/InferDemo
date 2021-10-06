@@ -44,7 +44,9 @@ void preprocess(cv::Mat &blob, std::vector<cv::Mat> &frames, int input_w, int in
         }
     }
 }
-
+void preprocess_openpose(cv::Mat &blob, std::vector<cv::Mat> &frames, int input_w, int input_h) {
+    blob = cv::dnn::blobFromImages(frames, 1 / 256.0, cv::Size(input_w, input_h), cv::Scalar(128, 128, 128), false, false);
+}
 void get_res(std::vector<bbox> &res, std::vector<cv::Rect2d> &bboxes, cv::Mat &temp, int num_cls,
              float conf_thresh = 0.3, float nms_thresh = 0.45) {
     cv::Point classIdPoint;

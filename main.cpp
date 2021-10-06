@@ -7,6 +7,7 @@
 #include "onnx_infer.hpp"
 #include "yolo_onnx.hpp"
 #include "simplepose_onnx.hpp"
+#include "light_pose.hpp"
 #include "yolo_cv.hpp"
 
 std::string f2s(float a) {
@@ -103,8 +104,6 @@ void yolo_fastest_test() {
             cv::waitKey(20);
         }
     }
-
-
 }
 
 void yolo_cv_test() {
@@ -162,7 +161,7 @@ void simplepose_test() {
     std::vector<std::string> img_files;
     std::vector<cv::Mat> frames;
     cv::VideoCapture cap("D:\\sample_video\\01.13.17.755.flv");
-    cv::Mat frame;
+
     std::vector<std::vector<bbox>> res;
 
     int input_w = 320;
@@ -174,6 +173,7 @@ void simplepose_test() {
     float x1, y1, ww, hh, score;
     int cls;
     while (true) {
+        cv::Mat frame;
         cap >> frame;
         if (frame.empty()) break;
         frames.push_back(frame);
@@ -239,11 +239,47 @@ void simplepose_test() {
     }
 }
 
+void light_pose_test() {
+    const wchar_t *onnx_file = L"D:\\model\\human-pose-estimation_db.onnx";
+    LightPose lightpose(onnx_file, "lightpose");
+    std::vector<std::string> img_files;
+    std::vector<cv::Mat> frames;
+    cv::VideoCapture cap("D:\\sample_video\\01.13.17.755.flv");
+
+    std::vector<std::vector<cv::Point2f>> res;
+    int input_w = 456;
+    int input_h = 256;
+    std::string label;
+    float x1, y1, w, h, score;
+    int cls;
+    while (true) {
+        cv::Mat frame;
+        cap >> frame;
+        if (frame.empty()) break;
+        frames.push_back(frame);
+        if (frames.size() < 2) continue;
+        lightpose.infer(frames, res, input_w, input_h);
+        for (int z = 0; z < frames.size(); z++) {
+            frame = frames[z];
+            for (int i = 0; i < res[z].size(); i++) {
+                x1 = res[z][i].x * frame.cols / input_w;
+                y1 = res[z][i].y * frame.rows / input_h;
+                cv::circle(frame, cv::Point((int) x1, (int) y1), 2, cv::Scalar(0, 255, 0), 2);
+
+            }
+            cv::imshow("img", frame);
+            cv::waitKey(20);
+        }
+        frames.clear();
+    }
+}
+
 int main() {
 //    yolo_test();
 //    yolo_fastest_test();
 //    yolo_cv_test();
-    simplepose_test();
+//    simplepose_test();
+    light_pose_test();
     return 0;
 }
 
