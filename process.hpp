@@ -110,10 +110,10 @@ void postprocess_yolo_onnx(std::vector<std::vector<bbox>> &res, const std::vecto
             bboxes[i].push_back(cv::Rect2d(boxes[i * stride1 + j * 4 + 0], boxes[i * stride1 + j * 4 + 1],
                                            boxes[i * stride1 + j * 4 + 2] - boxes[i * stride1 + j * 4 + 0],
                                            boxes[i * stride1 + j * 4 + 3] - boxes[i * stride1 + j * 4 + 1]));
-            temp = cv::Mat(1, num_cls, CV_32F);
-            for (int k = 0; k < num_cls; k++) {
-                temp.at<float>(0, k) = confs[i * stride2 + j * num_cls + k];
-            }
+            temp = cv::Mat(1, num_cls, CV_32F,&confs[i * stride2 + j * num_cls]);
+//            for (int k = 0; k < num_cls; k++) {
+//                temp.at<float>(0, k) = confs[i * stride2 + j * num_cls + k];
+//            }
             scores[i].push_back(temp);
 
         }
