@@ -1,4 +1,5 @@
 #pragma once
+
 #include <iostream>
 #include <ctime>
 #include <opencv2/opencv.hpp>
@@ -6,7 +7,6 @@
 #include<vector>
 
 extern clock_t startTime, endTime;
-
 
 
 class OnnxInfer {
@@ -19,6 +19,8 @@ public:
     std::vector<std::vector<int>> output_shapes;
     std::vector<Ort::Value> ort_inputs;
     Ort::Env *env;
+    std::string name = std::string(20, ' ');
+
     OnnxInfer(const wchar_t *onnx_file) {
 
         Ort::AllocatorWithDefaultOptions allocator;
@@ -27,7 +29,28 @@ public:
         session_options.SetIntraOpNumThreads(4);
 
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-        this->env=new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "test5");
+        this->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "test5");
+        this->session = new Ort::Session(*this->env, onnx_file, session_options);
+
+        for (int i = 0; i < this->session->GetInputCount(); i++) {
+            this->input_node_names.push_back(session->GetInputName(i, allocator));
+        }
+        for (int i = 0; i < this->session->GetOutputCount(); i++) {
+            this->output_node_names.push_back(session->GetOutputName(i, allocator));
+        }
+        this->outputs.resize(session->GetOutputCount());
+        this->output_shapes.resize(session->GetOutputCount());
+    }
+
+    OnnxInfer(const wchar_t *onnx_file, std::string name) {
+        this->name.replace(0, name.size(), name);
+        Ort::AllocatorWithDefaultOptions allocator;
+        Ort::SessionOptions session_options;
+        this->onnx_file = onnx_file;
+        session_options.SetIntraOpNumThreads(4);
+
+        session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+        this->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "test5");
         this->session = new Ort::Session(*this->env, onnx_file, session_options);
 
         for (int i = 0; i < this->session->GetInputCount(); i++) {
@@ -44,7 +67,7 @@ public:
         if (this->session != nullptr) {
             delete this->session;
         }
-        if (this->env != nullptr){
+        if (this->env != nullptr) {
             delete this->env;
         }
     }
@@ -70,7 +93,8 @@ public:
                                            ort_inputs.size(), this->output_node_names.data(),
                                            this->output_node_names.size());
         endTime = clock();
-        std::cout << "yolo onnx infer time:" << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s" << std::endl;
+        std::cout << this->name << "onnx infer time:" << (double) (endTime - startTime) / CLOCKS_PER_SEC << "s"
+                  << std::endl;
         for (int i = 0; i < output_tensors.size(); i++) {
             this->outputs[i] = (float *) output_tensors[i].GetTensorMutableData<float>();
             this->output_shapes[i].clear();

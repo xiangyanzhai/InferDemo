@@ -9,7 +9,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories("D:/onnxruntime-win-x64-1.8.1/include")
 link_directories("D:/onnxruntime-win-x64-1.8.1/lib")
 
-add_executable(InferDemo main.cpp)
+add_executable(InferDemo main.cpp peak.cpp render_human_pose.cpp human_pose.cpp human_pose_estimator.cpp)
 target_link_libraries(InferDemo ${OpenCV_LIBS})
 target_link_libraries(InferDemo onnxruntime)
 
