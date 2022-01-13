@@ -422,7 +422,7 @@ void postprocess_simplepose_one(bbox_keypoints &res, float *ptr, int hm_h, int h
         int a = (int) res.keypoints[i][0];
         int b = (int) res.keypoints[i][1];
 
-        if ((a > 1 && a < hm_w - 1) && (b > 1 && b < hm_w - 1)) {
+        if ((a > 1 && a < hm_w - 1) && (b > 1 && b < hm_h - 1)) {
             float temp = ptr[i * hm_h * hm_w + b * hm_h + a + 1] - ptr[i * hm_h * hm_w + b * hm_h + a - 1];
             res.keypoints[i][0] += sign(temp) * 0.25f;
             temp = ptr[i * hm_h * hm_w + (b + 1) * hm_w + a] - ptr[i * hm_h * hm_w + (b - 1) * hm_w + a];
